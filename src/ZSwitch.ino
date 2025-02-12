@@ -89,7 +89,6 @@ void anotherFunc(void * params){
 
 void setup() {
   Serial.begin(115200);
-  delay(500);
 
   // StepperController::Init(steppers, NUM_STEPPERS);
   
