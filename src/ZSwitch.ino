@@ -6,7 +6,8 @@
 #include "ZCodeParser.h"
 #include "Shared/MotorMoveParams.h"
 #include "shared/Stepper.h"
-#include "InputController.h"
+#include "shared/OtherTypeDefs.h"
+#include "Calibration.h"
 
 // [X, Y, Head]
 #define NUM_STEPPERS 3
@@ -50,20 +51,21 @@ void IRAM_ATTR timer3ISR()
 }
 #else
 
+OnTimer onTimer3;
+
 // Timers for stepping the motors
 ISR(TIMER3_COMPA_vect) {
-  if (steppers[0].steppingEnabled && steppers[0].moveQueue != 0) {
-    digitalWrite(steppers[0].stepPin, !digitalRead(steppers[0].stepPin));
+  // if (steppers[0].steppingEnabled && steppers[0].moveQueue != 0) {
+  //   digitalWrite(steppers[0].stepPin, !digitalRead(steppers[0].stepPin));
+  // }
+
+  if (onTimer3) {
+    onTimer3();
   }
 }
 ISR(TIMER4_COMPA_vect) {
   if (steppers[1].steppingEnabled && steppers[1].moveQueue != 0) {
     digitalWrite(steppers[1].stepPin, !digitalRead(steppers[1].stepPin));
-  }
-}
-ISR(TIMER5_COMPA_vect) {
-  if (steppers[2].steppingEnabled && steppers[2].moveQueue != 0) {
-    digitalWrite(steppers[2].stepPin, !digitalRead(steppers[2].stepPin));
   }
 }
 #endif
@@ -87,12 +89,21 @@ void anotherFunc(void * params){
 
 void setup() {
   Serial.begin(115200);
+  delay(500);
 
-  StepperController::Init(steppers, NUM_STEPPERS);
+  // StepperController::Init(steppers, NUM_STEPPERS);
   
-  xTaskCreate(StepperController::MotorTask, "Motors", 1024, NULL, 5,  NULL);
+  // xTaskCreate(StepperController::MotorTask, "Motors", 1024, NULL, 5,  NULL);
   // xTaskCreate(anotherFunc, "Other loop", 1024, NULL, 5,  NULL);
-  xTaskCreate(InputControlTask, "Input", 1024, NULL, 5,  NULL);
+
+
+  // CalibrationParams *calibrationParams = (CalibrationParams *)malloc(sizeof(CalibrationParams));
+  // calibrationParams->onTimer = &onTimer3;
+  // calibrationParams->dirPin = steppers[0].dirPin;
+  // calibrationParams->stepPin = steppers[0].stepPin;
+  // calibrationParams->enPin = steppers[0].enPin;
+  Serial.println("Starting calibration");
+  // xTaskCreate(CalibrationTask, "Calibration", 1024, (void *)calibrationParams, 5,  NULL);
 }
 
 void loop() {
