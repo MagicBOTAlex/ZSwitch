@@ -32,25 +32,7 @@ void StepperController::Init(Stepper *steppers, int numOfSteppers)
     pinMode(steppers[i].stepPin, OUTPUT);
   }
 
-#ifdef ESP32
-  // Timer 1 - Equivalent to TIMER1_COMPA_vect
-  timer1 = timerBegin(0, 80, true); // Timer 0, prescaler 80 (1us per tick)
-  timerAttachInterrupt(timer1, &timer1ISR, true);
-  timerAlarmWrite(timer1, 500, true); // 500us interval
-  timerAlarmEnable(timer1);
-
-  // Timer 2 - Equivalent to TIMER3_COMPA_vect
-  timer2 = timerBegin(1, 80, true); // Timer 1, prescaler 80 (1us per tick)
-  timerAttachInterrupt(timer2, &timer2ISR, true);
-  timerAlarmWrite(timer2, 500, true); // 500us interval
-  timerAlarmEnable(timer2);
-
-  // Timer 3 - Equivalent to TIMER4_COMPA_vect
-  timer3 = timerBegin(2, 80, true); // Timer 2, prescaler 80 (1us per tick)
-  timerAttachInterrupt(timer3, &timer3ISR, true);
-  timerAlarmWrite(timer3, 500, true); // 500us interval
-  timerAlarmEnable(timer3);
-#else
+#ifndef ESP32
   cli();
   // Timer 3 (16-bit)
   TCCR3A = 0;
