@@ -44,17 +44,22 @@ void caliStep(CaliDirection dir) {
 }
 
 void OnTimer3(){
+    portDISABLE_INTERRUPTS();
 
     // Serial.println("Working");
     
     if (calibrationMotorMoving && caliParams){
         if (calibrationStage == 0) {
-            // for (size_t i = 0; i < 500; i++)
-            // {
-            //     caliStep(CaliDirection::Forward); // Faster recalibration (if homed)
-            //     delay(1);
-            // }
-            calibrationStage++;
+            calibrationStage = 2; // skip rotation calibration
+            caliData.stepsPerRotation = 3200;
+
+            // Home ig
+            if (!getCaliSwitchState() && prevSwitchState){ // Reverse until falling-edge
+                switchCritPointCali++;
+                Serial.println("Homed!");
+            } else { // Rotate until falling-edge
+                caliStep(CaliDirection::Reverse);
+            }
             
         } else if (calibrationStage == 1) { // Calibrate steps per rotation
 
@@ -80,28 +85,26 @@ void OnTimer3(){
                 caliData.stepsPerRotation++;
                 caliStep(CaliDirection::Reverse);
             }
-
-            prevSwitchState = getCaliSwitchState();
         } else if (calibrationStage == 2){
-            
-            
-            if (switchCritPointCali == 0 && getCaliSwitchState() && !prevSwitchState){ // rising-edge
+
+            if (switchCritPointCali == 0 && !getCaliSwitchState()){ // Reverse until unpressed
+                switchCritPointCali++;
+                Serial.println("Clear!");
+            } else if (switchCritPointCali == 0) { // Rotate until falling-edge
+                caliStep(CaliDirection::Reverse);
+            } else if (switchCritPointCali == 1 && getCaliSwitchState() && !prevSwitchState){ // rising-edge
                 caliData.switcherLower = currentCaliLocation;
                 switchCritPointCali++;
                 Serial.println("rising");
-            } else if (switchCritPointCali == 0) { // Rotate until falling-edge
+            } else if (switchCritPointCali == 1) { // Rotate until falling-edge
                 caliStep(CaliDirection::Forward);
-            }
-            
-            if (switchCritPointCali == 1 && !getCaliSwitchState() && prevSwitchState){ // next falling edge
-                Serial.println("falling");
+            } else if (switchCritPointCali == 2 && !getCaliSwitchState() && prevSwitchState){ // until unpressed
+                Serial.println("Clear!");
                 switchCritPointCali++;
                 
-            } else if (switchCritPointCali == 1) { // Keep rotating
+            } else if (switchCritPointCali == 2) { // Keep rotating
                 caliStep(CaliDirection::Forward);
-            }
-
-            if (switchCritPointCali == 2 && getCaliSwitchState() && !prevSwitchState){ // rising-edge
+            } else if (switchCritPointCali == 3 && getCaliSwitchState() && !prevSwitchState){ // rising-edge
                 Serial.println("rising");
                 caliData.switcherUpper = currentCaliLocation;
                 calibrationStage++;
@@ -114,13 +117,14 @@ void OnTimer3(){
                 Serial.print("Crit: ");
                 Serial.println(caliData.switcherUpper - ((caliData.switcherUpper-caliData.switcherLower)/2));
                 
-            } else if (switchCritPointCali == 2) { // Keep rotating
+            } else if (switchCritPointCali == 3) { // Keep rotating
                 caliStep(CaliDirection::Reverse);
             }
 
-            prevSwitchState = getCaliSwitchState();
         }
+        prevSwitchState = getCaliSwitchState();
     }
+    portENABLE_INTERRUPTS();
 }
 
 void motionTimer(){
@@ -179,9 +183,9 @@ void CalibrationTask(void *pv){
     while (true)
     {
         gotoTarget = cripPoint;
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
         gotoTarget = (int)(cripPoint + (caliData.stepsPerRotation * 0.5)) % caliData.stepsPerRotation;
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
     
 

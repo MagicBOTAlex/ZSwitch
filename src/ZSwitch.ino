@@ -35,7 +35,7 @@
 
 #pragma region Not gonna mess with this magic
 
-OnTimer onTimer3;
+OnTimer onSwitcherTimer; // 
 
 #ifdef ESP32
 // Timer Handles
@@ -45,8 +45,8 @@ hw_timer_t *timer2 = NULL;
 // Interrupt Service Routines for each timer
 void IRAM_ATTR timer1ISR()
 {
-  if (onTimer3) {
-    onTimer3();
+  if (onSwitcherTimer) {
+    onSwitcherTimer();
   }
 }
 #else
@@ -57,8 +57,8 @@ ISR(TIMER3_COMPA_vect) {
   //   digitalWrite(steppers[0].stepPin, !digitalRead(steppers[0].stepPin));
   // }
 
-  if (onTimer3) {
-    onTimer3();
+  if (onSwitcherTimer) {
+    onSwitcherTimer();
   }
 }
 ISR(TIMER4_COMPA_vect) {
@@ -102,7 +102,7 @@ void setup() {
   #endif
 
   CalibrationParams *calibrationParams = (CalibrationParams *)malloc(sizeof(CalibrationParams));
-  calibrationParams->onTimer = &onTimer3;
+  calibrationParams->onTimer = &onSwitcherTimer;
   calibrationParams->dirPin = steppers[0].dirPin;
   calibrationParams->stepPin = steppers[0].stepPin;
   calibrationParams->enPin = steppers[0].enPin;
