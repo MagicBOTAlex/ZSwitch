@@ -15,7 +15,8 @@ typedef struct {
 #endif
     Stepper *switcherStepper;
     Stepper *filamentStepper;
-    uint8_t switchPin;
+    uint8_t switcherPin;
+    uint8_t filaPin;
 } CalibrationParams;
 
 #endif // CALIBRATION_PARAMS_H

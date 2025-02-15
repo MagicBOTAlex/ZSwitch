@@ -11,8 +11,8 @@
 #include "driver/timer.h"
 
 #ifdef ESP32
-#define CALI_SWITCH_PIN 21
-#define OTHER_SWTICH 20
+#define CALI_SWITCHER_SWITCH_PIN 21
+#define CALI_Fila_SWITCH_PIN 20
 // [X, Y, Head]
 #define NUM_STEPPERS 2
 Stepper steppers[NUM_STEPPERS] = {
@@ -23,7 +23,7 @@ Stepper steppers[NUM_STEPPERS] = {
 
 #else
 
-#define CALI_SWITCH_PIN 3
+#define CALI_SWITCHER_SWITCH_PIN 3
 // [X, Y, Head]
 #define NUM_STEPPERS 2
 Stepper steppers[NUM_STEPPERS] = {
@@ -123,7 +123,8 @@ void setup()
   calibrationParams->onTimer1 = &onSwitcherTimer;
   calibrationParams->switcherStepper = &steppers[0];
   calibrationParams->filamentStepper = &steppers[1];
-  calibrationParams->switchPin = CALI_SWITCH_PIN;
+  calibrationParams->switcherPin = CALI_SWITCHER_SWITCH_PIN;
+  calibrationParams->filaPin = CALI_Fila_SWITCH_PIN;
 #ifdef ESP32
   calibrationParams->interruptTimer1 = timer1;
 #endif
