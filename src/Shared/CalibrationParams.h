@@ -4,15 +4,17 @@
 #include <Arduino.h>
 #include "OtherTypeDefs.h"
 #include "driver/timer.h"
+#include "Shared/Stepper.h"
 
 typedef struct {
-    OnTimer *onTimer;
+    OnTimerFunc *onTimer1;
+    OnTimerFunc *onTimer2;
 #ifdef ESP32
-    hw_timer_s *interruptTimer;
+    hw_timer_s *interruptTimer1;
+    hw_timer_s *interruptTimer2;
 #endif
-    uint8_t enPin;
-    uint8_t dirPin;
-    uint8_t stepPin;
+    Stepper *switcherStepper;
+    Stepper *filamentStepper;
     uint8_t switchPin;
 } CalibrationParams;
 

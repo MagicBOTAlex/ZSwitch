@@ -33,17 +33,17 @@ enum CaliDirection {
 
 void caliStep(CaliDirection dir) {
     if (dir == CaliDirection::Forward){
-        digitalWrite(caliParams->dirPin, HIGH);
+        digitalWrite(caliParams->switcherStepper->dirPin, HIGH);
         currentCaliLocation++;
     } else {
-        digitalWrite(caliParams->dirPin, LOW);
+        digitalWrite(caliParams->switcherStepper->dirPin, LOW);
         currentCaliLocation--;
     }
 
-    digitalWrite(caliParams->stepPin, !digitalRead(caliParams->stepPin));
+    digitalWrite(caliParams->switcherStepper->stepPin, !digitalRead(caliParams->switcherStepper->stepPin));
 }
 
-void OnTimer3(){
+void SwitcherCaliTimer(){
     portDISABLE_INTERRUPTS();
 
     // Serial.println("Working");
@@ -127,6 +127,10 @@ void OnTimer3(){
     portENABLE_INTERRUPTS();
 }
 
+void FilamentCaliTimer() {
+
+}
+
 void motionTimer(){
     if (calibrationMotorMoving && currentCaliLocation % caliData.stepsPerRotation != gotoTarget){
         int offset = (currentCaliLocation-gotoTarget) % caliData.stepsPerRotation;
@@ -139,25 +143,27 @@ void motionTimer(){
     }
 }
 
+
+
 void CalibrationTask(void *pv){
     caliParams = (CalibrationParams*) pv;
     Serial.println("Starting calibration");
-    Serial.print("dirPin: "); Serial.println(caliParams->dirPin);
-    Serial.print("stepPin: "); Serial.println(caliParams->stepPin);
-    Serial.print("enPin: "); Serial.println(caliParams->enPin);
+    Serial.print("dirPin: "); Serial.println(caliParams->switcherStepper->dirPin);
+    Serial.print("stepPin: "); Serial.println(caliParams->switcherStepper->stepPin);
+    Serial.print("enPin: "); Serial.println(caliParams->switcherStepper->enPin);
 
-    pinMode(caliParams->dirPin, OUTPUT);
-    pinMode(caliParams->stepPin, OUTPUT);
-    pinMode(caliParams->enPin, OUTPUT);
+    pinMode(caliParams->switcherStepper->dirPin, OUTPUT);
+    pinMode(caliParams->switcherStepper->stepPin, OUTPUT);
+    pinMode(caliParams->switcherStepper->enPin, OUTPUT);
     pinMode(caliParams->switchPin, (SWTICH_ON_STATE == LOW)? INPUT_PULLUP:INPUT_PULLDOWN);
     
-    digitalWrite(caliParams->enPin, LOW);
+    digitalWrite(caliParams->switcherStepper->enPin, LOW);
     
     // vTaskDelay(pdMS_TO_TICKS(1000));
-    (*(caliParams->onTimer)) = OnTimer3;
+    (*(caliParams->onTimer1)) = SwitcherCaliTimer;
     
 #ifdef ESP32
-    setupCaliTimer(caliParams->interruptTimer);
+    setupCaliTimer(caliParams->interruptTimer1);
 #else
     cli();
     setupCaliTimer();
@@ -172,9 +178,9 @@ void CalibrationTask(void *pv){
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    (*(caliParams->onTimer)) = motionTimer;
+    (*(caliParams->onTimer1)) = motionTimer;
     #ifdef ESP32
-    timerAlarmWrite(caliParams->interruptTimer, 2, true);
+    timerAlarmWrite(caliParams->interruptTimer1, 2, true);
     #else
     OCR3A = 3299;
     #endif
