@@ -18,8 +18,11 @@ CalibrationParams *caliParams;
 
 int switchCritPointCali = 0; // Because we go forward, then backwards
 
-int currentCaliLocation = 0;
-int gotoTarget = 0;
+int currentSwitcherLocation = 0;
+int switcher_gotoTarget = 0;
+
+int fila1Location = 0;
+int fila2Location = 0;
 
 bool prevSwitchState = false;
 bool getCaliSwitchState()
@@ -40,15 +43,21 @@ void caliStep(CaliDirection dir)
     if (dir == CaliDirection::Forward)
     {
         digitalWrite(caliParams->switcherStepper->dirPin, HIGH);
-        currentCaliLocation++;
+        currentSwitcherLocation++;
     }
     else
     {
         digitalWrite(caliParams->switcherStepper->dirPin, LOW);
-        currentCaliLocation--;
+        currentSwitcherLocation--;
     }
 
     digitalWrite(caliParams->switcherStepper->stepPin, !digitalRead(caliParams->switcherStepper->stepPin));
+}
+
+int getSwitchCrit(int *upper, int *lower, bool getOppisiteSide = false){
+    int cripPoint = *upper - ((*upper - *lower) / 2);
+    int offCrit = (int)(cripPoint + (caliData.stepsPerRotation * 0.5));
+    return ((getOppisiteSide) ? cripPoint + offCrit : cripPoint) % caliData.stepsPerRotation;
 }
 
 void SwitcherCaliTimer()
@@ -61,14 +70,14 @@ void SwitcherCaliTimer()
     {
         if (calibrationStage == 0)
         {
-            calibrationStage = 2; // skip rotation calibration
             caliData.stepsPerRotation = 3200;
 
             // Home ig
             if (!getCaliSwitchState() && prevSwitchState)
             { // Reverse until falling-edge
-                switchCritPointCali++;
                 Serial.println("Homed!");
+                currentSwitcherLocation = 0;
+                calibrationStage = 2;
             }
             else
             { // Rotate until falling-edge
@@ -98,7 +107,7 @@ void SwitcherCaliTimer()
                 Serial.print("Steps per rotation: ");
                 Serial.println(caliData.stepsPerRotation);
 
-                currentCaliLocation = 0; // Homed
+                currentSwitcherLocation = 0; // Homed
             }
             else if (caliData.stepsPerRotation > 0)
             { // Keep rotating
@@ -118,16 +127,18 @@ void SwitcherCaliTimer()
             { // Rotate until falling-edge
                 caliStep(CaliDirection::Reverse);
             }
+
             else if (switchCritPointCali == 1 && getCaliSwitchState() && !prevSwitchState)
             { // rising-edge
-                caliData.switcherLower = currentCaliLocation;
+                caliData.switcherLower = currentSwitcherLocation;
                 switchCritPointCali++;
                 Serial.println("rising");
             }
             else if (switchCritPointCali == 1)
-            { // Rotate until falling-edge
+            { // Rotate until rising-edge
                 caliStep(CaliDirection::Forward);
             }
+
             else if (switchCritPointCali == 2 && !getCaliSwitchState() && prevSwitchState)
             { // until unpressed
                 Serial.println("Clear!");
@@ -137,10 +148,11 @@ void SwitcherCaliTimer()
             { // Keep rotating
                 caliStep(CaliDirection::Forward);
             }
+
             else if (switchCritPointCali == 3 && getCaliSwitchState() && !prevSwitchState)
             { // rising-edge
                 Serial.println("rising");
-                caliData.switcherUpper = currentCaliLocation;
+                caliData.switcherUpper = currentSwitcherLocation;
                 calibrationStage++;
                 isSwitcherCalibrated = true;
 
@@ -149,7 +161,7 @@ void SwitcherCaliTimer()
                 Serial.print("Upper: ");
                 Serial.println(caliData.switcherUpper);
                 Serial.print("Crit: ");
-                Serial.println(caliData.switcherUpper - ((caliData.switcherUpper - caliData.switcherLower) / 2));
+                Serial.println(getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower));
             }
             else if (switchCritPointCali == 3)
             { // Keep rotating
@@ -164,73 +176,69 @@ void SwitcherCaliTimer()
 // Only for fila cali, just now implimented for switcher cali
 // Checks if the current state is rising or falling
 // Only works if you keep on calling this
-bool prevSwitchState = false;
+bool prevFilaSwitchState = false;
 bool edging(bool *currentState, bool checkFalling = true){
-    bool isRisingEdge = *currentState == !prevSwitchState;
-    bool isFallingEdge = !*currentState == prevSwitchState;
-    prevSwitchState = *currentState;
+    bool isRisingEdge = *currentState == !prevFilaSwitchState;
+    bool isFallingEdge = !*currentState == prevFilaSwitchState;
+    prevFilaSwitchState = *currentState;
     return (checkFalling) ? isFallingEdge : isRisingEdge;
 }
 
 // A basic version of controlling the extrudesion and retraction of both sides
 bool isLeftGrabbed = false;
-void basicFilaStepCommander(bool isLeftSide) {
-    if (isLeftGrabbed != isLeftSide){
-        int switcherCrip = getSwitchCrit(&caliData.filamentUpper1, &caliData.filamentUpper1);
-        if (gotoTarget == switcherCrip) {
-
-        } else {
-            switcherCrip = getSwitchCrit(&caliData.filamentUpper1, &caliData.filamentUpper1);
-        }
-        switcherCrip = true;
+void basicFilaStepCommander(CaliDirection direction, bool isRightSide) {
+    int switcherCrit = getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower);
+    switcher_gotoTarget = (int)(switcherCrit + ((isRightSide) ? (caliData.stepsPerRotation * 0.5) : 0)) % caliData.stepsPerRotation; // move to correct grab side
+    if (switcher_gotoTarget != currentSwitcherLocation){
+        return; // Wait until filament is grabbed
     }
-    digitalwrite(caliParams->filamentStepper->dirPin, HIGH); // Gonna leave this error heare for tomorrow
+
+    if (!isRightSide){
+        fila1Location += (direction == CaliDirection::Forward) ? 1 : -1;
+    } else {
+        fila2Location += (direction == CaliDirection::Forward) ? 1 : -1;
+    }
+    digitalWrite(caliParams->filamentStepper->dirPin, (isRightSide) ? HIGH : LOW);
+    digitalWrite(caliParams->filamentStepper->stepPin, !digitalRead(caliParams->filamentStepper->stepPin)); // step
 }
 
-int filaPullSteps = 0;
+int filaPushPullSteps = 0;
 void FilamentPullBackUntilFalling()
 {
     currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;    
     if (currentFilaState)
     {
-        if (filaPullSteps == 0) {
+        if (filaPushPullSteps == 0) {
             Serial.println("You fucked up. Start with filament inserted to max depth.");
         }
     } else {
-        filaPullSteps++;
-        caliStep(CaliDirection::Reverse);
-        digitalWrite(caliParams->filamentStepper->stepPin, !digitalRead(caliParams->filamentStepper->stepPin)); // Step once
+        filaPushPullSteps++;
+        basicFilaStepCommander(CaliDirection::Reverse, true);
     }
     
 }
 
-int filaPushSteps = 0;
-void FilamentPullBackUntilFalling()
+void FilamentPullBackUntilRising()
 {
     currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;    
     if (!currentFilaState)
     {
-        if (filaPushSteps == 0) {
-            Serial.println("You fucked up. Started pushing from a switch ON state");
+        if (filaPushPullSteps == 0) {
+            Serial.println("You fucked up. Start with filament inserted to max depth.");
         }
     } else {
-        filaPushSteps++;
-        digitalWrite(caliParams->filamentStepper->stepPin, !digitalRead(caliParams->filamentStepper->stepPin)); // Step once
+        filaPushPullSteps++;
+        basicFilaStepCommander(CaliDirection::Forward, true);
     }
     
 }
 
-int getSwitchCrit(int *upper, int *lower, bool getOppisiteSide = false){
-    int cripPoint = *lower - ((*upper - *lower) / 2);
-    int offCrit = (int)(cripPoint + (caliData.stepsPerRotation * 0.5)) % caliData.stepsPerRotation;
-    return (getOppisiteSide) ? getOppisiteSide : cripPoint;
-}
 
 void motionTimer() 
 {
-    if (calibrationMotorMoving && currentCaliLocation % caliData.stepsPerRotation != gotoTarget)
+    if (calibrationMotorMoving && currentSwitcherLocation % caliData.stepsPerRotation != switcher_gotoTarget)
     {
-        int offset = (currentCaliLocation - gotoTarget) % caliData.stepsPerRotation;
+        int offset = (currentSwitcherLocation - switcher_gotoTarget) % caliData.stepsPerRotation;
         if (offset >= 0)
         {
             caliStep(CaliDirection::Reverse);
@@ -300,35 +308,35 @@ void CalibrationTask(void *pv)
     timerAlarmWrite(caliParams->interruptTimer2, 20, true);
 #endif
 
-    // Setup stepper driver
-    pinMode(caliParams->filamentStepper->dirPin, OUTPUT);
-    pinMode(caliParams->filamentStepper->stepPin, OUTPUT);
-    pinMode(caliParams->filamentStepper->enPin, OUTPUT);
-    pinMode(caliParams->filaPin, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
+    // // Setup stepper driver
+    // pinMode(caliParams->filamentStepper->dirPin, OUTPUT);
+    // pinMode(caliParams->filamentStepper->stepPin, OUTPUT);
+    // pinMode(caliParams->filamentStepper->enPin, OUTPUT);
+    // pinMode(caliParams->filaPin, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
 
-    digitalWrite(caliParams->filamentStepper->enPin, LOW);
+    // digitalWrite(caliParams->filamentStepper->enPin, LOW);
 
-    (*(caliParams->onTimer1)) = FilamentPullBackUntilFalling; // Start pulling back
-    while (!currentFilaState) // Wait until filament pulled back
-    {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    caliData.filamentLower1 = filaPullSteps;
+    // (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
+    // while (!currentFilaState) // Wait until filament pulled back
+    // {
+    //     vTaskDelay(pdMS_TO_TICKS(100));
+    // }
+    // caliData.filamentLower1 = filaPushPullSteps;
 
 
-    (*(caliParams->onTimer1)) = FilamentPullBackUntilFalling; // Start pushing forward back
-    while (!currentFilaState) // Wait until filament pushed to switch
-    {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    caliData.filamentUpper1 = filaPushSteps;
+    // (*(caliParams->onTimer2)) = FilamentPullBackUntilRising; // Start pushing forward
+    // while (currentFilaState) // Wait until filament pushed to switch
+    // {
+    //     vTaskDelay(pdMS_TO_TICKS(100));
+    // }
+    // caliData.filamentUpper1 = filaPushPullSteps;
 
     int cripPoint = getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower);
     while (true)
     {
-        gotoTarget = cripPoint;
+        switcher_gotoTarget = cripPoint;
         vTaskDelay(pdMS_TO_TICKS(1000));
-        gotoTarget = (int)(cripPoint + (caliData.stepsPerRotation * 0.5)) % caliData.stepsPerRotation;
+        switcher_gotoTarget = (int)(cripPoint + (caliData.stepsPerRotation * 0.5)) % caliData.stepsPerRotation;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
