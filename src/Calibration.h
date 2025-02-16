@@ -57,7 +57,7 @@ void caliStep(CaliDirection dir)
 int getSwitchCrit(int *upper, int *lower, bool getOppisiteSide = false){
     int cripPoint = *upper - ((*upper - *lower) / 2);
     int offCrit = (int)(cripPoint + (caliData.stepsPerRotation * 0.5));
-    return ((getOppisiteSide) ? cripPoint + offCrit : cripPoint) % caliData.stepsPerRotation;
+    return ((getOppisiteSide) ? offCrit : cripPoint) % caliData.stepsPerRotation;
 }
 
 void SwitcherCaliTimer()
@@ -184,13 +184,26 @@ bool edging(bool *currentState, bool checkFalling = true){
     return (checkFalling) ? isFallingEdge : isRisingEdge;
 }
 
+
+/// @brief Sets the switcher's grab side
+/// @return True if grabbed. False if still rotating
+bool setSwitcherSide(bool rightSide = false) {
+    int switcherCrit = getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower, rightSide);
+    switcher_gotoTarget = switcherCrit; // move to correct grab side
+    if (switcher_gotoTarget != currentSwitcherLocation){
+        Serial.println(switcher_gotoTarget);
+        Serial.println(currentSwitcherLocation);
+        return false; // Wait until filament is grabbed
+    } else {
+        return true;
+    }
+}
+
 // A basic version of controlling the extrudesion and retraction of both sides
 bool isLeftGrabbed = false;
 void basicFilaStepCommander(CaliDirection direction, bool isRightSide) {
-    int switcherCrit = getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower);
-    switcher_gotoTarget = (int)(switcherCrit + ((isRightSide) ? (caliData.stepsPerRotation * 0.5) : 0)) % caliData.stepsPerRotation; // move to correct grab side
-    if (switcher_gotoTarget != currentSwitcherLocation){
-        return; // Wait until filament is grabbed
+    if (!setSwitcherSide(isRightSide)){
+        return;
     }
 
     if (!isRightSide){
@@ -198,15 +211,17 @@ void basicFilaStepCommander(CaliDirection direction, bool isRightSide) {
     } else {
         fila2Location += (direction == CaliDirection::Forward) ? 1 : -1;
     }
-    digitalWrite(caliParams->filamentStepper->dirPin, (isRightSide) ? HIGH : LOW);
+    digitalWrite(caliParams->filamentStepper->dirPin, (direction == CaliDirection::Forward) ? LOW : HIGH);
     digitalWrite(caliParams->filamentStepper->stepPin, !digitalRead(caliParams->filamentStepper->stepPin)); // step
 }
 
 int filaPushPullSteps = 0;
 void FilamentPullBackUntilFalling()
 {
-    currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;    
-    if (currentFilaState)
+    if (!setSwitcherSide()) return; // Wait for correct side
+    
+    currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;
+    if (!currentFilaState)
     {
         if (filaPushPullSteps == 0) {
             Serial.println("You fucked up. Start with filament inserted to max depth.");
@@ -218,13 +233,15 @@ void FilamentPullBackUntilFalling()
     
 }
 
-void FilamentPullBackUntilRising()
+void FilamentPushUntilRising()
 {
+    if (!setSwitcherSide()) return; // Wait for correct side
+
     currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;    
-    if (!currentFilaState)
+    if (currentFilaState)
     {
         if (filaPushPullSteps == 0) {
-            Serial.println("You fucked up. Start with filament inserted to max depth.");
+            Serial.println("Somethings is wrong...");
         }
     } else {
         filaPushPullSteps++;
@@ -247,7 +264,7 @@ void motionTimer()
         {
             caliStep(CaliDirection::Forward);
         }
-        // Serial.println(offset);
+        Serial.println(offset);
     }
 }
 
@@ -305,31 +322,52 @@ void CalibrationTask(void *pv)
 // Start Filament cali
 #ifdef ESP32
     // Not adding more support for arduino mega. At least for now
-    timerAlarmWrite(caliParams->interruptTimer2, 20, true);
+    timerAlarmWrite(caliParams->interruptTimer2, 5, true);
 #endif
 
-    // // Setup stepper driver
-    // pinMode(caliParams->filamentStepper->dirPin, OUTPUT);
-    // pinMode(caliParams->filamentStepper->stepPin, OUTPUT);
-    // pinMode(caliParams->filamentStepper->enPin, OUTPUT);
-    // pinMode(caliParams->filaPin, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
+    // Grab right side and wait for user click
+    setSwitcherSide(true); 
+    Serial.println("Please insert filament and then press user button");
+    while (true)
+    {
+        if (digitalRead(caliParams->userPin) == SWTICH_ON_STATE){
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    
 
-    // digitalWrite(caliParams->filamentStepper->enPin, LOW);
+    // Setup stepper driver
+    pinMode(caliParams->filamentStepper->dirPin, OUTPUT);
+    pinMode(caliParams->filamentStepper->stepPin, OUTPUT);
+    pinMode(caliParams->filamentStepper->enPin, OUTPUT);
+    pinMode(caliParams->filaPin, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
 
-    // (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
-    // while (!currentFilaState) // Wait until filament pulled back
-    // {
-    //     vTaskDelay(pdMS_TO_TICKS(100));
-    // }
-    // caliData.filamentLower1 = filaPushPullSteps;
+    digitalWrite(caliParams->filamentStepper->enPin, LOW);
 
-
-    // (*(caliParams->onTimer2)) = FilamentPullBackUntilRising; // Start pushing forward
-    // while (currentFilaState) // Wait until filament pushed to switch
-    // {
-    //     vTaskDelay(pdMS_TO_TICKS(100));
-    // }
-    // caliData.filamentUpper1 = filaPushPullSteps;
+    Serial.println("Started fila switch cali");
+    (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
+    currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;
+    while (currentFilaState) // Wait until filament pulled back
+    {
+        // Serial.println("Cali lower fila");
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    caliData.filamentLower1 = fila1Location;
+    Serial.print("Lower fila: ");
+    Serial.println(caliData.filamentLower1);
+    
+    
+    (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
+    while (!currentFilaState) // Wait until filament pushed to switch
+    {
+        // Serial.println("Cali upper fila");
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    caliData.filamentUpper1 = fila1Location;
+    Serial.print("Upper fila: ");
+    Serial.println(caliData.filamentUpper1);
+    (*(caliParams->onTimer2)) = nullptr;
 
     int cripPoint = getSwitchCrit(&caliData.switcherUpper, &caliData.switcherLower);
     while (true)
