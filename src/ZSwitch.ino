@@ -61,7 +61,7 @@ void setup()
   timerAttachInterrupt(timer1, timer1ISR, true); // Attach ISR
   timerAlarmWrite(timer1, 1000, true);
   timerAlarmEnable(timer1);
-  timer2 = timerBegin(1, 8000, true);            // Timer 0, prescaler 8000 (1 tick = 1ms)
+  timer2 = timerBegin(1, 4000, true);            // Timer 0, prescaler 8000 (1 tick = 1ms)
   timerAttachInterrupt(timer2, timer2ISR, true); // Attach ISR
   timerAlarmWrite(timer2, 1000, true);
   timerAlarmEnable(timer2);
@@ -82,7 +82,7 @@ void setup()
 #endif
 
   Serial.println("Starting cali task");
-  xTaskCreate(CalibrationTask, "Calibration", 1024 * 4, (void *)calibrationParams, 5, NULL);
+  xTaskCreate(CalibrationTask, "Calibration", 1024 * 4, (void *)calibrationParams, 5, NULL); // Fuck me, everything is going to be in here
 }
 
 void loop()

@@ -6,13 +6,14 @@
 #endif
 #include "driver/timer.h"
 #include "Shared/Utils.h"
+#include "Shared/StepperPositioning.h"
 
 #define SWTICH_ON_STATE LOW
+#define SWITCHING_FILA_BTN 20
 
 int calibrationStage = 0;
 
 bool isSwitcherCalibrated = false;
-bool isFilaCalibrated = false;
 bool calibrationMotorMoving = false;
 CalibrationParams *caliParams;
 
@@ -20,9 +21,11 @@ int switchCritPointCali = 0; // Because we go forward, then backwards
 
 int currentSwitcherLocation = 0;
 int switcher_gotoTarget = 0;
+bool lightlyGrab = false;
 
-int fila1Location = 0;
-int fila2Location = 0;
+#define NUM_FILAMENT_SLOTS 2
+int currentlySelectedFila = 0; // 0 = left, 1 = right
+StepperPositioning filaSlots[NUM_FILAMENT_SLOTS];
 
 bool prevSwitchState = false;
 bool getCaliSwitchState()
@@ -30,7 +33,8 @@ bool getCaliSwitchState()
     return digitalRead(caliParams->switcherPin) == SWTICH_ON_STATE;
 }
 
-void setSwitcherTarget(int newTarget){
+void setSwitcherTarget(int newTarget)
+{
     switcher_gotoTarget = newTarget;
 }
 
@@ -175,84 +179,78 @@ void SwitcherCaliTimer()
 // Checks if the current state is rising or falling
 // Only works if you keep on calling this
 bool prevFilaSwitchState = false;
-bool edging(bool *currentState, bool checkFalling = true){
+bool edging(bool *currentState, bool checkFalling = true)
+{
     bool isRisingEdge = *currentState == !prevFilaSwitchState;
     bool isFallingEdge = !*currentState == prevFilaSwitchState;
     prevFilaSwitchState = *currentState;
     return (checkFalling) ? isFallingEdge : isRisingEdge;
 }
 
-
 /// @brief Sets the switcher's grab side
 /// @return True if grabbed. False if still rotating
-bool setSwitcherSide(bool rightSide = false) {
+bool setSwitcherSide(bool rightSide = false)
+{
     int switcherCrit = getClampedSwitchCrit(caliParams->calibratedData, &caliParams->calibratedData->switcherUpper, &caliParams->calibratedData->switcherLower, rightSide);
+
+    if (lightlyGrab){
+        switcherCrit = (int)(switcherCrit + (caliParams->calibratedData->stepsPerRotation * (1.0f/12.0f))) % caliParams->calibratedData->stepsPerRotation;
+    }
+
     setSwitcherTarget(switcherCrit); // move to correct grab side
-    if (switcher_gotoTarget != currentSwitcherLocation){
+    if (switcher_gotoTarget != currentSwitcherLocation)
+    {
         // Serial.print("Target: ");
         // Serial.println(switcher_gotoTarget);
         // Serial.print("Current: ");
         // Serial.println(currentSwitcherLocation);
         return false; // Wait until filament is grabbed
-    } else {
+    }
+    else
+    {
         return true;
     }
 }
 
 // A basic version of controlling the extrudesion and retraction of both sides
-bool isLeftGrabbed = false;
-void basicFilaStepCommander(CaliDirection direction, bool isRightSide) {
-    if (!setSwitcherSide(isRightSide)){
+void basicFilaStepCommander(CaliDirection direction, bool isRightSide)
+{
+    if (!setSwitcherSide(isRightSide))
+    {
         return;
     }
 
-    if (!isRightSide){
-        fila1Location += (direction == CaliDirection::Forward) ? 1 : -1;
-    } else {
-        fila2Location += (direction == CaliDirection::Forward) ? 1 : -1;
-    }
-    digitalWrite(caliParams->filamentStepper->dirPin, (direction == CaliDirection::Forward) ? LOW : HIGH);
+    filaSlots[isRightSide].current += (direction == CaliDirection::Forward) ? 1 : -1;
+    digitalWrite(caliParams->filamentStepper->dirPin, (direction == CaliDirection::Forward ^ isRightSide) ? LOW : HIGH);
     digitalWrite(caliParams->filamentStepper->stepPin, !digitalRead(caliParams->filamentStepper->stepPin)); // step
     // Serial.println("step");
 }
 
-int filaPushPullSteps = 0;
 void FilamentPullBackUntilFalling()
 {
-    if (!setSwitcherSide(false)) return; // Wait for correct side
-    
+    if (!setSwitcherSide(currentlySelectedFila))
+        return; // Wait for correct side
+
     currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;
-    if (!currentFilaState)
+    if (currentFilaState)
     {
-        if (filaPushPullSteps == 0) {
-            Serial.println("You fucked up. Start with filament inserted to max depth.");
-        }
-    } else {
-        filaPushPullSteps++;
-        basicFilaStepCommander(CaliDirection::Reverse, false);
+        basicFilaStepCommander(CaliDirection::Reverse, currentlySelectedFila);
     }
-    
 }
 
 void FilamentPushUntilRising()
 {
-    if (!setSwitcherSide(false)) return; // Wait for correct side
+    if (!setSwitcherSide(currentlySelectedFila))
+        return; // Wait for correct side
 
-    currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;    
-    if (currentFilaState)
+    currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;
+    if (!currentFilaState)
     {
-        if (filaPushPullSteps == 0) {
-            Serial.println("Somethings is wrong...");
-        }
-    } else {
-        filaPushPullSteps++;
-        basicFilaStepCommander(CaliDirection::Forward, false);
+        basicFilaStepCommander(CaliDirection::Forward, currentlySelectedFila);
     }
-    
 }
 
-
-void motionTimer() 
+void switcherMotionTimer()
 {
     if (calibrationMotorMoving && currentSwitcherLocation % caliParams->calibratedData->stepsPerRotation != switcher_gotoTarget)
     {
@@ -267,6 +265,25 @@ void motionTimer()
         }
         // Serial.println(offset);
     }
+}
+
+void filaMotionTimer()
+{
+    if (!setSwitcherSide(currentlySelectedFila))
+        return;
+
+    int offset = (filaSlots[currentlySelectedFila].current - filaSlots[currentlySelectedFila].target);
+    if (!offset)
+        return; // Offset 0 then do nothing
+    if (offset >= 0)
+    {
+        basicFilaStepCommander(CaliDirection::Reverse, currentlySelectedFila);
+    }
+    else
+    {
+        basicFilaStepCommander(CaliDirection::Forward, currentlySelectedFila);
+    }
+    //Serial.println(offset);
 }
 
 void CalibrationTask(void *pv)
@@ -313,7 +330,7 @@ void CalibrationTask(void *pv)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    (*(caliParams->onTimer1)) = motionTimer; // Set to motion func
+    (*(caliParams->onTimer1)) = switcherMotionTimer; // Set to motion func
 #ifdef ESP32
     timerAlarmWrite(caliParams->interruptTimer1, 2, true);
 #else
@@ -327,16 +344,16 @@ void CalibrationTask(void *pv)
 #endif
 
     // Grab right side and wait for user click
-    setSwitcherSide(true); 
+    setSwitcherSide(true);
     Serial.println("Please insert filament and then press user button");
     while (true)
     {
-        if (digitalRead(caliParams->userPin) == SWTICH_ON_STATE){
-            break; 
+        if (digitalRead(caliParams->userPin) == SWTICH_ON_STATE)
+        {
+            break;
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    
 
     // Setup stepper driver
     pinMode(caliParams->filamentStepper->dirPin, OUTPUT);
@@ -351,24 +368,126 @@ void CalibrationTask(void *pv)
     currentFilaState = digitalRead(caliParams->filaPin) == SWTICH_ON_STATE;
     while (currentFilaState) // Wait until filament pulled back
     {
-        // Serial.println("Cali lower fila");
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    caliParams->calibratedData->filamentLower = fila1Location;
+    caliParams->calibratedData->filamentLower = filaSlots[0].current;
     Serial.print("Lower fila: ");
     Serial.println(caliParams->calibratedData->filamentLower);
-    
-    
+
     (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
-    while (!currentFilaState) // Wait until filament pushed to switch
+    while (!currentFilaState)                            // Wait until filament pushed to switch
     {
-        // Serial.println("Cali upper fila");
         vTaskDelay(pdMS_TO_TICKS(100));
     }
-    caliParams->calibratedData->filamentUpper = fila1Location;
+    caliParams->calibratedData->filamentUpper = filaSlots[0].current;
     Serial.print("Upper fila: ");
     Serial.println(caliParams->calibratedData->filamentUpper);
     (*(caliParams->onTimer2)) = nullptr;
+
+    for (size_t i = 0; i < NUM_FILAMENT_SLOTS; i++)
+    {
+        currentlySelectedFila = i;
+        Serial.println((currentlySelectedFila) ? "Waiting for filament right load" : "Waiting for filament left load");
+        (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
+        while (!currentFilaState)                            // Wait until filament pushed to switch
+        {
+            // Serial.println("push");
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
+        while (currentFilaState)                                  // Wait until filament pulled back
+        {
+            // Serial.println("pull");
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
+        (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
+        filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+        while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
+        {
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+        Serial.println((currentFilaState) ? "Right fila ready" : "Left fila ready");
+    }
+
+    // Push filament 1 back out
+    timerAlarmWrite(caliParams->interruptTimer2, 1, true);
+    currentlySelectedFila = 0;
+    (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
+    while (!currentFilaState)                            // Wait until filament pushed to switch
+    {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentUpper;
+    filaSlots[currentlySelectedFila].target = 0;                                                // 0 is the started pull place
+    (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
+    while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target) // wait for filament finish moved
+    {
+        Serial.println(filaSlots[currentlySelectedFila].current);
+        Serial.println(filaSlots[currentlySelectedFila].target);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+    pinMode(SWITCHING_FILA_BTN, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
+    bool prevSwitchingState; // Used to detect falling-edge
+    while (true)             // Enter printing loop
+    {
+        bool switchingBtnState = digitalRead(SWITCHING_FILA_BTN) == SWTICH_ON_STATE;
+        // Serial.println(switchingBtnState);
+
+        if (switchingBtnState && !prevFilaSwitchState)
+        {
+            Serial.println("Switching filament");
+            Serial.println("pull");
+            timerAlarmWrite(caliParams->interruptTimer2, 2, true);
+            // Pull
+            lightlyGrab = false;
+            (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
+            while (currentFilaState)                                  // Wait until filament pulled back
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
+            filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+            (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
+            while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            
+            Serial.println("push");
+            // Push
+            currentlySelectedFila = !currentlySelectedFila;
+            (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
+            while (!currentFilaState)                            // Wait until filament pushed to switch
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentUpper;
+            filaSlots[currentlySelectedFila].target = 0;                                                // 0 is the started pull place
+            lightlyGrab = false;
+            (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
+            while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target) // wait for filament finish moved
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+
+            Serial.println("push 2 soft");
+            timerAlarmWrite(caliParams->interruptTimer2, 20, true);
+            // Push
+            filaSlots[currentlySelectedFila].target = caliParams->calibratedData->stepsPerRotation * 2;                                 
+            lightlyGrab = true;
+            (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
+            while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target) // wait for filament finish moved
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+        }
+
+        prevSwitchingState = switchingBtnState;
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     // int cripPoint = getSwitchCrit(caliParams->calibratedData->switcherUpper, caliParams->calibratedData->switcherLower);
     // while (true)
@@ -379,6 +498,5 @@ void CalibrationTask(void *pv)
     //     vTaskDelay(pdMS_TO_TICKS(1000));
     // }
 
-    Serial.println("Cali done");
     vTaskDelete(NULL);
 }
