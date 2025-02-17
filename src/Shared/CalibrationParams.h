@@ -5,6 +5,7 @@
 #include "OtherTypeDefs.h"
 #include "driver/timer.h"
 #include "Shared/Stepper.h"
+#include "Shared/CalibrationData.h"
 
 typedef struct {
     OnTimerFunc *onTimer1;
@@ -18,6 +19,7 @@ typedef struct {
     uint8_t switcherPin;
     uint8_t filaPin;
     uint8_t userPin;
+    CalibrationData *calibratedData;
 } CalibrationParams;
 
 #endif // CALIBRATION_PARAMS_H

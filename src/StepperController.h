@@ -8,14 +8,24 @@
 #include <Shared/ZCommand.h>
 #include <Shared/MotorMoveParams.h>
 #include <Shared/Stepper.h>
+#include <Shared/CalibrationData.h>
+#include <Shared/OtherTypeDefs.h>
+#include <Shared/MotorTimers.h>
 #include <algorithm>
+
+enum SelectFilament{
+  LEFT,
+  RIGHT,
+  NONE
+};
 
 class StepperController
 {
 private:
     static int NumOfSteppers;
     static Stepper *Steppers;
-    static long lastUpdateTime;
+    static CalibrationData *CaliData;
+    static MotorTimers *StepperTimers;
 
     static int getStepperIndex(const char axis);
 

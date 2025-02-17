@@ -3,27 +3,14 @@
 // Static variable definitions
 int StepperController::NumOfSteppers = 0;
 Stepper *StepperController::Steppers = nullptr;
-long StepperController::lastUpdateTime = 0;
+CalibrationData *StepperController::CaliData;
+MotorTimers *StepperController::StepperTimers;
 
-int StepperController::getStepperIndex(const char axis)
-{
-  for (size_t i = 0; i < StepperController::NumOfSteppers; i++)
-  {
-    if (StepperController::Steppers[i].axis == axis)
-    {
-      // Serial.print("Found motor: ");
-      // Serial.println(i);
-      return i;
-    }
-  }
-  return -1;
-}
-
-void StepperController::Init(Stepper *steppers, int numOfSteppers)
+void StepperController::Init(CalibrationData *caliData, Stepper *steppers, int numOfSteppers)
 {
   StepperController::Steppers = steppers;
   StepperController::NumOfSteppers = numOfSteppers;
-  StepperController::lastUpdateTime = 0;
+  StepperController::CaliData = caliData;
 
   for (size_t i = 0; i < NumOfSteppers; i++)
   {
@@ -31,28 +18,6 @@ void StepperController::Init(Stepper *steppers, int numOfSteppers)
     pinMode(steppers[i].dirPin, OUTPUT);
     pinMode(steppers[i].stepPin, OUTPUT);
   }
-
-#ifndef ESP32
-  cli();
-  // Timer 3 (16-bit)
-  TCCR3A = 0;
-  TCCR3B = (1 << WGM32) | (1 << CS30); // CTC mode, no prescaler
-  OCR3A = 499;                         // Compare match value
-  TIMSK3 |= (1 << OCIE3A);             // Enable Timer1 Compare A Match Interrupt
-
-  // Timer 4 (16-bit)
-  TCCR4A = 0;
-  TCCR4B = (1 << WGM42) | (1 << CS40); // CTC mode, no prescaler
-  OCR4A = 499;                         // Compare match value
-  TIMSK4 |= (1 << OCIE4A);             // Enable Timer3 Compare A Match Interrupt
-
-  // Timer 5 (16-bit)
-  TCCR5A = 0;
-  TCCR5B = (1 << WGM52) | (1 << CS50); // CTC mode, no prescaler
-  OCR5A = 499;                         // Compare match value
-  TIMSK5 |= (1 << OCIE5A);             // Enable Timer1 Compare A Match Interrupt
-  sei();
-#endif
 }
 
 void StepperController::MotorTask(void *params)
@@ -65,19 +30,19 @@ void StepperController::MotorTask(void *params)
     for (size_t i = 0; i < (size_t)StepperController::NumOfSteppers; i++)
     {
       Stepper *stepper = &StepperController:: Steppers[i];
-      bool isNegative = signbit(stepper->moveQueue);
+      bool isNegative = signbit(stepper->target);
 
-      if (stepper->steppingEnabled && stepper->moveQueue != 0)
+      if (stepper->steppingEnabled && stepper->target != 0)
       {
-        if (stepper->moveQueue > 0) {
-          stepper->moveQueue -= std::min((int)sinceLastRunTime, abs(stepper->moveQueue));
+        if (stepper->target > 0) {
+          stepper->target -= std::min((int)sinceLastRunTime, abs(stepper->target));
         } else {
-          stepper->moveQueue += std::min((int)sinceLastRunTime, abs(stepper->moveQueue));
+          stepper->target += std::min((int)sinceLastRunTime, abs(stepper->target));
         }
-        Serial.println(stepper->moveQueue);
+        Serial.println(stepper->target);
         digitalWrite(stepper->dirPin, isNegative);
 
-        if (stepper->disableOnIdle && stepper->moveQueue == 0){
+        if (stepper->disableOnIdle && stepper->target == 0){
           stepper->motorEnabled = false;
         }
       }
@@ -98,22 +63,16 @@ void StepperController::SetMovementEnabled(const char axis, bool enabled)
   StepperController::Steppers[index].steppingEnabled = enabled;
 }
 
-void StepperController::SetMoveQueue(const char axis, int moveTimeMs)
+void StepperController::SetMoveQueue(const char axis, int targetStepPos)
 {
   int index = getStepperIndex(axis);
-  StepperController::Steppers[index].moveQueue = moveTimeMs;
+  StepperController::Steppers[index].target = targetStepPos;
 }
 
-void StepperController::QueueMove(const char axis, int moveTimeMs)
+void StepperController::QueueMove(const char axis, int targetStepPos)
 {
   int index = getStepperIndex(axis);
-  StepperController::Steppers[index].moveQueue += moveTimeMs;
-}
-
-void StepperController::ClearMoveQueue(const char axis)
-{
-  int index = getStepperIndex(axis);
-  StepperController::Steppers[index].moveQueue = 0;
+  StepperController::Steppers[index].target += targetStepPos;
 }
 
 void StepperController::SetMotorEnabled(const char axis, bool enabled)

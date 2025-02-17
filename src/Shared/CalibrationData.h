@@ -7,7 +7,7 @@ typedef struct {
     int stepsPerRotation;
     int switcherUpper;
     int switcherLower;
-    int filamentUpper1;
-    int filamentLower1;
+    int filamentUpper;
+    int filamentLower;
 } CalibrationData;
 #endif

@@ -10,16 +10,17 @@
 #include "Calibration.h"
 #include "driver/timer.h"
 
+CalibrationData caliData;
+
 #ifdef ESP32
 #define CALI_SWITCHER_SWITCH_PIN 1
 #define CALI_Fila_SWITCH_PIN 2
 #define CALI_USER_BTN_PIN 21
 // [X, Y, Head]
 #define NUM_STEPPERS 2
-Stepper steppers[NUM_STEPPERS] = {
-    {7, 5, 6, 0, 'x', false, false, true},
-    {10, 8, 9, 0, 'y', false, false, true}
-    // {30, 34, 36, 0, 'e', false, false, true},
+Stepper steppers[NUM_STEPPERS] = { // old setup
+    {7, 5, 6, false}, // switcher
+    {10, 8, 9, false} //fila
 };
 
 #else
@@ -89,9 +90,9 @@ void anotherFunc(void *params)
 
   while (true)
   {
-    StepperController::SetMotorEnabled('x', true);
-    StepperController::SetMovementEnabled('x', true);
-    StepperController::QueueMove('x', -2000);
+    StepperController::SetMotorEnabled('1', true);
+    StepperController::SetMovementEnabled('1', true);
+    StepperController::QueueMove('1', -2000);
     Serial.println("Added to queue");
     vTaskDelay(pdMS_TO_TICKS(5000));
   }
@@ -133,6 +134,7 @@ void setup()
   calibrationParams->switcherPin = CALI_SWITCHER_SWITCH_PIN;
   calibrationParams->filaPin = CALI_Fila_SWITCH_PIN;
   calibrationParams->userPin = CALI_USER_BTN_PIN;
+  calibrationParams->calibratedData = &caliData;
 #ifdef ESP32
   calibrationParams->interruptTimer1 = timer1;
   calibrationParams->interruptTimer2 = timer2;
