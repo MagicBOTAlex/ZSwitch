@@ -1,9 +1,4 @@
 #include <Arduino.h>
-#ifndef ESP32
-#include <Arduino_FreeRTOS.h>
-#endif
-#include "StepperController.h"
-#include "ZCodeParser.h"
 #include "Shared/MotorMoveParams.h"
 #include "shared/Stepper.h"
 #include "shared/OtherTypeDefs.h"
@@ -12,7 +7,6 @@
 
 CalibrationData caliData;
 
-#ifdef ESP32
 #define CALI_SWITCHER_SWITCH_PIN 1
 #define CALI_Fila_SWITCH_PIN 2
 #define CALI_USER_BTN_PIN 21
@@ -20,27 +14,12 @@ CalibrationData caliData;
 #define NUM_STEPPERS 2
 Stepper steppers[NUM_STEPPERS] = { // old setup
     {7, 5, 6, false}, // switcher
-    {10, 8, 9, false} //fila
+    {10, 8, 9, false} // fila
 };
-
-#else
-
-#define CALI_SWITCHER_SWITCH_PIN 3
-// [X, Y, Head]
-#define NUM_STEPPERS 2
-Stepper steppers[NUM_STEPPERS] = {
-    {38, 55, 54, 0, 'x', false, false, true},
-    {56, 61, 60, 0, 'y', false, false, true}
-    // {30, 34, 36, 0, 'e', false, false, true},
-};
-#endif
-
-#pragma region Not gonna mess with this magic
 
 OnTimerFunc onSwitcherTimer;
 OnTimerFunc onFilamentTimer;
 
-#ifdef ESP32
 // Timer Handles
 hw_timer_t *timer1 = NULL;
 hw_timer_t *timer2 = NULL;
@@ -60,45 +39,7 @@ void IRAM_ATTR timer2ISR()
     onFilamentTimer();
   }
 }
-#else
 
-// Timers for stepping the motors
-ISR(TIMER3_COMPA_vect)
-{
-  // if (steppers[0].steppingEnabled && steppers[0].moveQueue != 0) {
-  //   digitalWrite(steppers[0].stepPin, !digitalRead(steppers[0].stepPin));
-  // }
-
-  if (onSwitcherTimer)
-  {
-    onSwitcherTimer();
-  }
-}
-ISR(TIMER4_COMPA_vect)
-{
-  if (steppers[1].steppingEnabled && steppers[1].moveQueue != 0)
-  {
-    digitalWrite(steppers[1].stepPin, !digitalRead(steppers[1].stepPin));
-  }
-}
-#endif
-
-#pragma endregion
-
-void anotherFunc(void *params)
-{
-
-  while (true)
-  {
-    StepperController::SetMotorEnabled('1', true);
-    StepperController::SetMovementEnabled('1', true);
-    StepperController::QueueMove('1', -2000);
-    Serial.println("Added to queue");
-    vTaskDelay(pdMS_TO_TICKS(5000));
-  }
-
-  vTaskDelete(NULL);
-}
 
 void setup()
 {
