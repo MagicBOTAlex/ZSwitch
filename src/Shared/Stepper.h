@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-struct Stepper {
+struct  Stepper {
     uint8_t enPin;
     uint8_t dirPin;
     uint8_t stepPin;
