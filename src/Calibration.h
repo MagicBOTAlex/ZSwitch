@@ -22,6 +22,7 @@ int switchCritPointCali = 0; // Because we go forward, then backwards
 int currentSwitcherLocation = 0;
 int switcher_gotoTarget = 0;
 bool lightlyGrab = false;
+bool unGrab = false;
 
 #define NUM_FILAMENT_SLOTS 2
 int currentlySelectedFila = 0; // 0 = left, 1 = right
@@ -193,7 +194,9 @@ bool setSwitcherSide(bool rightSide = false)
 {
     int switcherCrit = getClampedSwitchCrit(caliParams->calibratedData, &caliParams->calibratedData->switcherUpper, &caliParams->calibratedData->switcherLower, rightSide);
 
-    if (lightlyGrab){
+    if (unGrab){
+        switcherCrit = (int)(switcherCrit + (caliParams->calibratedData->stepsPerRotation * (1.0f/2.0f))) % caliParams->calibratedData->stepsPerRotation; // Made error here, but it works better so sure
+    } else if (lightlyGrab){
         switcherCrit = (int)(switcherCrit + (caliParams->calibratedData->stepsPerRotation * (1.0f/12.0f))) % caliParams->calibratedData->stepsPerRotation;
     }
 
@@ -340,7 +343,7 @@ void CalibrationTask(void *pv)
 // Start Filament cali
 #ifdef ESP32
     // Not adding more support for arduino mega. At least for now
-    timerAlarmWrite(caliParams->interruptTimer2, 5, true);
+    timerAlarmWrite(caliParams->interruptTimer2, 2, true);
 #endif
 
     // Grab right side and wait for user click
@@ -411,49 +414,38 @@ void CalibrationTask(void *pv)
         Serial.println((currentFilaState) ? "Right fila ready" : "Left fila ready");
     }
 
-    // Push filament 1 back out
-    timerAlarmWrite(caliParams->interruptTimer2, 1, true);
-    currentlySelectedFila = 0;
-    (*(caliParams->onTimer2)) = FilamentPushUntilRising; // Start pushing forward
-    while (!currentFilaState)                            // Wait until filament pushed to switch
-    {
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentUpper;
-    filaSlots[currentlySelectedFila].target = 0;                                                // 0 is the started pull place
-    (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
-    while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target) // wait for filament finish moved
-    {
-        Serial.println(filaSlots[currentlySelectedFila].current);
-        Serial.println(filaSlots[currentlySelectedFila].target);
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-
+    bool isFirstLoad = true;
     pinMode(SWITCHING_FILA_BTN, (SWTICH_ON_STATE == LOW) ? INPUT_PULLUP : INPUT_PULLDOWN);
     bool prevSwitchingState; // Used to detect falling-edge
     while (true)             // Enter printing loop
     {
-        bool switchingBtnState = digitalRead(SWITCHING_FILA_BTN) == SWTICH_ON_STATE;
+        bool switchingBtnState = digitalRead(SWITCHING_FILA_BTN) == SWTICH_ON_STATE || isFirstLoad;
         // Serial.println(switchingBtnState);
 
-        if (switchingBtnState && !prevFilaSwitchState)
+        if ((switchingBtnState && !prevFilaSwitchState) || isFirstLoad)
         {
-            Serial.println("Switching filament");
-            Serial.println("pull");
-            timerAlarmWrite(caliParams->interruptTimer2, 2, true);
-            // Pull
-            lightlyGrab = false;
-            (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
-            while (currentFilaState)                                  // Wait until filament pulled back
-            {
-                vTaskDelay(pdMS_TO_TICKS(100));
-            }
-            filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
-            filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
-            (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
-            while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
-            {
-                vTaskDelay(pdMS_TO_TICKS(100));
+            if(!isFirstLoad)  {
+                Serial.println("Switching filament");
+                Serial.println("pull");
+                vTaskDelay(pdMS_TO_TICKS(4000));
+                timerAlarmWrite(caliParams->interruptTimer2, 2, true);
+                // Pull
+                unGrab = false;
+                lightlyGrab = true;
+                (*(caliParams->onTimer2)) = FilamentPullBackUntilFalling; // Start pulling back
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                lightlyGrab = false;
+                while (currentFilaState)                                  // Wait until filament pulled back
+                {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
+                filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
+                filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+                (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
+                while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
+                {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                }
             }
             
             Serial.println("push");
@@ -475,7 +467,7 @@ void CalibrationTask(void *pv)
 
             Serial.println("push 2 soft");
             timerAlarmWrite(caliParams->interruptTimer2, 20, true);
-            // Push
+            // Push2
             filaSlots[currentlySelectedFila].target = caliParams->calibratedData->stepsPerRotation * 2;                                 
             lightlyGrab = true;
             (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
@@ -483,6 +475,18 @@ void CalibrationTask(void *pv)
             {
                 vTaskDelay(pdMS_TO_TICKS(100));
             }
+
+            // Ungrab
+            unGrab = true;
+            // Push3
+            filaSlots[currentlySelectedFila].target++; // Just gonna reuse the push methods                        
+            lightlyGrab = true;
+            (*(caliParams->onTimer2)) = filaMotionTimer;                                                // Ready moving
+            while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target) // wait for filament finish moved
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            isFirstLoad = false;
         }
 
         prevSwitchingState = switchingBtnState;
