@@ -14,7 +14,7 @@ I wanted dissalvable supports and maybe PLA + TPU designs. Who knows.
 The mechanism was inspired by [TetraFlow](https://github.com/apoorv1in/TetraFlow_MMU)
 But it felt like it had too many components.
 
-### Demo video [Youtube]([http://img.youtube.com/vi/LOB4sRO39Bo/0.jpg](https://youtu.be/LOB4sRO39Bo))
+### Demo video [Youtube](https://youtu.be/LOB4sRO39Bo)
 [![Demo video](http://img.youtube.com/vi/LOB4sRO39Bo/0.jpg)](https://youtu.be/LOB4sRO39Bo)
 ##### Internals GIF
 ![ezgif-4bcd5e0f03a0ef](https://github.com/user-attachments/assets/d12f7e44-84cf-4363-b937-c65ca188389a)
