@@ -16,6 +16,7 @@ But it felt like it had too many components.
 
 ### Demo video
 [![Demo video](http://img.youtube.com/vi/LOB4sRO39Bo/0.jpg)](https://youtu.be/LOB4sRO39Bo)
+![ezgif-4bcd5e0f03a0ef](https://github.com/user-attachments/assets/d12f7e44-84cf-4363-b937-c65ca188389a)
 ##### Printed results
 ![2025-02-18 02 24 16](https://github.com/user-attachments/assets/ec4de492-c135-4f0e-83e8-bb43668c63a2)
 
