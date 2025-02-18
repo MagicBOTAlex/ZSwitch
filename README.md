@@ -16,6 +16,9 @@ But it felt like it had too many components.
 
 ### Demo video
 [![Demo video](http://img.youtube.com/vi/LOB4sRO39Bo/0.jpg)](https://youtu.be/LOB4sRO39Bo)
+##### Printed results
+![2025-02-18 02 24 16](https://github.com/user-attachments/assets/ec4de492-c135-4f0e-83e8-bb43668c63a2)
+
 
 ### MMU
 ![20250218_010620](https://github.com/user-attachments/assets/1d19f10f-dc9e-4824-b82c-c2926f4becf0)
