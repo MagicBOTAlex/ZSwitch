@@ -48,6 +48,10 @@ A better design would require less.
 - 3: Skateboard bearings
 - 1: Filament grabbing gear (I got mine from an old sherpa mini extruder)
 
+## DISCLAIMER
+As per usual, if any of my design causes damage to your or your machine, it is your own fault.
+I cannot be held liable for the decisions you make.
+
 ### Contributting
 I honestly don't expect anyone to continue this. But if anyone wants to, then I'll be here.
 Here's a small list of TODO. All of these will be solve if the software is rewritten from scratch. But if we want to keep patching up this version, then go ahead:
