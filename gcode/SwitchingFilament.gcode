@@ -3,7 +3,7 @@
 ;
 ; removed conditional statements for checking filament type
 
-{if layer_num > -1 || true} ; "true" switch on startup. "false" to keep current filament
+{if layer_num > -1 || false} ; "true" switch on startup. "false" to keep current filament
 
 M204 S9000 ; set starting acceleration
 G17 ; set CNC workspace plane
