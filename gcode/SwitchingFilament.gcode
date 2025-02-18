@@ -2,7 +2,8 @@
 ; modified gcode from Bambu Studio v1.9.5
 ;
 ; removed conditional statements for checking filament type
-{if layer_num > -1}
+
+{if layer_num > -1 || true} ; "true" switch on startup. "false" to keep current filament
 
 M204 S9000 ; set starting acceleration
 G17 ; set CNC workspace plane
