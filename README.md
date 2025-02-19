@@ -12,6 +12,8 @@ Another reason is because I don't want to support Bambu anymore. (Hate when comp
 - Designed for P1S
 - I still use Bambu Studio
 - USB-C PD 👍
+- Doesn't support Bambu
+- Is open-source
 
 #### Cons
 - Bad software (Too early of a project)
