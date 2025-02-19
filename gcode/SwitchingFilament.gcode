@@ -46,10 +46,10 @@ G1 E-30 F500
 G4 P17000
 G1 E10 F500
 
-; ; move to poop chute
-; G1 X70 F12000
-; G1 Y245
-; G1 Y265 F3000
+; move to poop chute
+G1 X70 F12000
+;G1 Y245
+G1 Y265 F3000
 
 ; ; push a little filament out and then retract out
 ; G1 E10 F200
