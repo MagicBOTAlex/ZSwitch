@@ -60,7 +60,7 @@ G1 E10 F500
 ; ; M400 U1
 
 ; move away from chute and move back, credits to @Billiam for this section
-G1 X65 Y240 F12000
+G1 X55 Y240 F12000
 G1 Y265 F3000
 
 
