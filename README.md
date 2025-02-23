@@ -1,21 +1,37 @@
-# Description
-## This is ZSwitch!
+# This is ZSwitch!
 ![image](https://github.com/user-attachments/assets/dbee23c3-8310-46dd-8ac8-5d697cf7f815)
 An open source 2 filament MMU for my P1S, focused on simplicity. I never planned on open-sourcing this, but here are the project files.
 The code is a complete mess, since I focused on speed of development, and not quality.
 A major reason for this project is I wanted the community to know that this was possible.
 Another reason is because I don't want to support Bambu anymore. (Hate when companies remove features)
 
-###### Reason for only 2 filaments
-I only designed this for 2 filaments, because I could not see myself use more than 2.
-I wanted dissalvable supports and maybe PLA + TPU designs. Who knows.
+#### Pros
+- Cheap
+- Simple
+- Apparently supports TPU
+- Designed for P1S
+- I still use Bambu Studio
+- USB-C PD 👍
+- Doesn't support Bambu
+- Is open-source
 
-###### Inspiration/design
+#### Cons
+- Bad software (Too early of a project)
+- Not connected to the actual slicer (It's just a button that controls when to switch the filament. May change in the future, since I'm using an ESP32-C3)
+- No community (Yet? idk)
+
+##### Reason for only 2 filaments
+I only designed this for 2 filaments, because I could not see myself use more than 2.
+I wanted dissalvable supports and maybe PLA + TPU designs.
+
+##### Inspiration/design
 The mechanism was inspired by [TetraFlow](https://github.com/apoorv1in/TetraFlow_MMU)
 But it felt like it had too many components.
 
 ### Demo video [Youtube](https://youtu.be/LOB4sRO39Bo)
 [![Demo video](http://img.youtube.com/vi/LOB4sRO39Bo/0.jpg)](https://youtu.be/LOB4sRO39Bo)
+### Dual TPU demo [Youtube](https://youtu.be/BcuDLzC1Btk)
+[![Demo video](http://img.youtube.com/vi/BcuDLzC1Btk/0.jpg)](https://youtu.be/BcuDLzC1Btk)
 ##### Internals GIF
 ![ezgif-4bcd5e0f03a0ef](https://github.com/user-attachments/assets/d12f7e44-84cf-4363-b937-c65ca188389a)
 ##### Printed results
@@ -34,7 +50,7 @@ But it felt like it had too many components.
 ##### Mock-up schematics
 ![2025-02-18 01 18 58](https://github.com/user-attachments/assets/903994d8-51bd-4910-9cfe-e601e07107da)
 
-##### Reason for name
+### Reason for name
 Every design I make is Z + the project.
 So this is ZSwitch.
 (Yeah, I'm not good at names!!!)
@@ -54,7 +70,7 @@ A better design would require less.
 - 1: Filament grabbing gear (I got mine from an old sherpa mini extruder)
 
 ## DISCLAIMER
-As per usual, if any of my design causes damage to your or your machine, it is your own fault.
+As per usual, if anything of my design causes damage to you or your machine, it is your own fault.
 I cannot be held liable for the decisions you make.
 
 ### Contributting
