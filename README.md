@@ -36,7 +36,9 @@ But it felt like it had too many components.
 ![ezgif-4bcd5e0f03a0ef](https://github.com/user-attachments/assets/d12f7e44-84cf-4363-b937-c65ca188389a)
 ##### Printed results
 ![2025-02-18 02 24 16](https://github.com/user-attachments/assets/ec4de492-c135-4f0e-83e8-bb43668c63a2)
-
+![20250218_171123](https://github.com/user-attachments/assets/39550d14-3765-4754-8e4f-1bf2e6e71a00)
+![20250224_081407](https://github.com/user-attachments/assets/a799c66d-8ffb-44d7-8174-590495202833)
+had some bleeding/stringing because of wet TPU
 
 ### MMU
 ![20250218_010620](https://github.com/user-attachments/assets/1d19f10f-dc9e-4824-b82c-c2926f4becf0)
