@@ -63,7 +63,7 @@ A better design would require less.
 (Excluding 3D printed parts, and small parts)
 - 2: TMC2209
 - 2: Nema steppers
-- 1: Esp32-C3 (Yes, I wanted to add MQTT support. But lazy)
+- 1: Esp32-C3 (Yes, I wanted to add Wifi. But lazy)
 - 1: USB-C PD Trigger board
 - 1: Step-Down converter
 - 2: Capasitors (For stepper drivers)
