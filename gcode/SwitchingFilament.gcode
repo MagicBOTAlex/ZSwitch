@@ -43,7 +43,34 @@ G1 X70
 G1 Y265
 G1 E10 F200
 G1 E-30 F500
-G4 P17000
+
+; Flushes the gcode buffer of the printer to prevent double movement
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+
+; G4 P17000 ; this pause sometimes causes double clicking of filament swithcing button (old)
+G4 P5000
+
+; Flushes the gcode buffer of the printer to prevent double movement
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+G1 E0
+
 G1 E10 F500
 
 ; move to poop chute

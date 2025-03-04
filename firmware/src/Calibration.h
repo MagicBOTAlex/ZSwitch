@@ -405,7 +405,8 @@ void CalibrationTask(void *pv)
         }
         filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
         (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
-        filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+        // filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+        filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 2); // Move 2 rotation back to clear for fila 2
         while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
         {
             vTaskDelay(pdMS_TO_TICKS(100));
@@ -440,7 +441,8 @@ void CalibrationTask(void *pv)
                     vTaskDelay(pdMS_TO_TICKS(100));
                 }
                 filaSlots[currentlySelectedFila].current = caliParams->calibratedData->filamentLower;
-                filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+                // filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 0.5); // Move half  rotation back to clear for fila 2
+                filaSlots[currentlySelectedFila].target = filaSlots[currentlySelectedFila].current - (caliParams->calibratedData->stepsPerRotation * 2); // Move 2 rotation back to clear for fila 2
                 (*(caliParams->onTimer2)) = filaMotionTimer;                                                                                               // Ready moving
                 while (filaSlots[currentlySelectedFila].current != filaSlots[currentlySelectedFila].target)                                                // wait for filament finish moved
                 {
